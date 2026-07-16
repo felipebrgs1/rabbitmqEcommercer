@@ -1,0 +1,58 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq-ecommerce
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ecommerce
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: ecommerce-api
+    ports:
+      - '3001:3001'
+    environment:
+      - PORT=3001
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ecommerce
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: ecommerce-web
+    ports:
+      - '3000:3000'
+    environment:
+      - VITE_API_URL=http://localhost:3001/api
+    depends_on:
+      - api
+    networks:
+      - ecommerce
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  ecommerce:
+    driver: bridge

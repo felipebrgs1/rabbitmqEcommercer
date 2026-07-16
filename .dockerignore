@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+*.md
+.turbo
+.env
+.env.local
