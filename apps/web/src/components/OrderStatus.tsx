@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import type { Order } from '@repo/shared';
 
-interface OrderStatusProps {
-  orders: Order[];
-}
+const productIcons: Record<string, string> = {
+  '1': '💻',
+  '2': '🖱️',
+  '3': '⌨️',
+  '4': '🖥️',
+};
 
 const statusLabels: Record<Order['status'], string> = {
   PENDING: 'Pendente',
@@ -14,39 +18,80 @@ const statusLabels: Record<Order['status'], string> = {
   FAILED: 'Falhou',
 };
 
+interface OrderStatusProps {
+  orders: Order[];
+}
+
 export function OrderStatus({ orders }: OrderStatusProps) {
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+
+  if (orders.length === 0) {
+    return (
+      <section className="orders-section">
+        <h2 className="section-title">Seus pedidos</h2>
+        <div className="empty-state">
+          <div className="icon">📋</div>
+          <p>Nenhum pedido realizado ainda.</p>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <div className="order-status">
-      <h2>Pedidos</h2>
-      {orders.length === 0 ? (
-        <p>Nenhum pedido ainda.</p>
-      ) : (
-        <ul>
-          {orders.map((order) => (
-            <li key={order.id} className={`order-card ${order.status.toLowerCase()}`}>
-              <div className="order-header">
-                <strong>Pedido #{order.id.slice(0, 8)}</strong>
-                <span className={`badge ${order.status.toLowerCase()}`}>
+    <section className="orders-section">
+      <h2 className="section-title">Seus pedidos ({orders.length})</h2>
+      <ul className="orders-list">
+        {[...orders].reverse().map((order) => {
+          const isExpanded = expandedOrder === order.id;
+
+          return (
+            <li key={order.id} className="order-card">
+              <div className="order-card-top">
+                <div className="order-card-left">
+                  <div className="product-icon">{productIcons[order.productId] ?? '📦'}</div>
+                  <div className="order-info">
+                    <div className="order-id">Pedido #{order.id.slice(0, 8)}</div>
+                    <div className="order-meta">
+                      Qtd: {order.quantity} ·{' '}
+                      {new Date(order.createdAt).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <span className={`badge ${order.status}`}>
                   {statusLabels[order.status]}
                 </span>
               </div>
-              <p>Produto: {order.productId}</p>
-              <p>Quantidade: {order.quantity}</p>
-              <p>Pagamento: {order.paymentStatus}</p>
-              <details>
-                <summary>Histórico</summary>
-                <ul className="history">
-                  {order.history.map((h: Order['history'][number], i: number) => (
+
+              <button
+                className="order-history-toggle"
+                onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+              >
+                {isExpanded ? '▲ Ocultar' : '▼ Ver'} histórico ({order.history.length})
+              </button>
+
+              {isExpanded && (
+                <ul className="history-list">
+                  {order.history.map((h, i) => (
                     <li key={i}>
-                      {statusLabels[h.status]} — {new Date(h.at).toLocaleTimeString()}
+                      {statusLabels[h.status]}
+                      <span className="history-time">
+                        {new Date(h.at).toLocaleTimeString('pt-BR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </span>
                     </li>
                   ))}
                 </ul>
-              </details>
+              )}
             </li>
-          ))}
-        </ul>
-      )}
-    </div>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

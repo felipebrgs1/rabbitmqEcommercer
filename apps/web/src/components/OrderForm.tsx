@@ -2,15 +2,39 @@ import { useState } from 'react';
 import { v4 as uuidv4 } from '../utils/uuid';
 import type { Product, CreateOrderRequest } from '@repo/shared';
 
+const productIcons: Record<string, string> = {
+  '1': '💻',
+  '2': '🖱️',
+  '3': '⌨️',
+  '4': '🖥️',
+};
+
 interface OrderFormProps {
   product: Product;
   onSubmit: (payload: CreateOrderRequest) => void;
+  onBack: () => void;
   loading: boolean;
 }
 
-export function OrderForm({ product, onSubmit, loading }: OrderFormProps) {
+const scenarioLabels: Record<string, string> = {
+  default: 'Padrão (sucesso)',
+  declined: 'Pagamento recusado',
+  duplicate: 'Duplo clique / idempotência',
+  concurrent_stock: 'Compra concorrente (estoque)',
+};
+
+const scenarioHints: Record<string, string> = {
+  duplicate:
+    'Mesma chave de idempotência. O backend retorna o resultado da primeira requisição, evitando duplicidade.',
+  concurrent_stock:
+    'Duas pessoas diferentes comprando o mesmo produto ao mesmo tempo. A segunda compra pode falhar por falta de estoque.',
+};
+
+export function OrderForm({ product, onSubmit, onBack, loading }: OrderFormProps) {
   const [quantity, setQuantity] = useState(1);
   const [scenario, setScenario] = useState<'default' | 'declined' | 'duplicate' | 'concurrent_stock'>('default');
+
+  const total = product.price * quantity;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,48 +47,71 @@ export function OrderForm({ product, onSubmit, loading }: OrderFormProps) {
   };
 
   return (
-    <form className="order-form" onSubmit={handleSubmit}>
-      <h2>Checkout: {product.name}</h2>
-      <p>Preço unitário: R$ {product.price.toFixed(2)}</p>
-      <p>Total: R$ {(product.price * quantity).toFixed(2)}</p>
+    <div className="checkout">
+      <div className="checkout-header">
+        <button className="checkout-back" onClick={onBack} title="Voltar para produtos">
+          ←
+        </button>
+        <span className="checkout-title">Finalizar compra</span>
+      </div>
 
-      <label>
-        Quantidade:
-        <input
-          type="number"
-          min={1}
-          max={product.stock}
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-        />
-      </label>
+      <form className="checkout-body" onSubmit={handleSubmit}>
+        <div className="checkout-summary">
+          <div className="checkout-product-card">
+            <div className="product-icon">{productIcons[product.id] ?? '📦'}</div>
+            <div className="checkout-product-info">
+              <span className="name">{product.name}</span>
+              <span className="unit-price">
+                R$ {product.price.toFixed(2).replace('.', ',')} / unidade
+              </span>
+            </div>
+          </div>
 
-      <label>
-        Cenário de simulação:
-        <select value={scenario} onChange={(e) => setScenario(e.target.value as typeof scenario)}>
-          <option value="default">Padrão (sucesso)</option>
-          <option value="declined">Pagamento recusado</option>
-          <option value="duplicate">Duplo clique / idempotência</option>
-          <option value="concurrent_stock">Compra concorrente (estoque)</option>
-        </select>
-      </label>
+          <div className="checkout-total">
+            <span>Total</span>
+            <span>R$ {total.toFixed(2).replace('.', ',')}</span>
+          </div>
+        </div>
 
-      <button type="submit" disabled={loading || quantity > product.stock}>
-        {loading ? 'Processando...' : 'Finalizar compra'}
-      </button>
+        <div className="checkout-form-fields">
+          <div className="form-group">
+            <label>Quantidade</label>
+            <input
+              type="number"
+              min={1}
+              max={product.stock}
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+            />
+          </div>
 
-      {scenario === 'duplicate' && (
-        <p className="hint">
-          O backend manterá a mesma <strong>idempotencyKey</strong> para simular duas requisições
-          idênticas. O resultado será o mesmo da primeira.
-        </p>
-      )}
-      {scenario === 'concurrent_stock' && (
-        <p className="hint">
-          Simula <strong>duas pessoas diferentes</strong> comprando o mesmo produto ao mesmo
-          tempo (chaves de idempotência distintas). A segunda compra pode falhar por falta de estoque.
-        </p>
-      )}
-    </form>
+          <div className="form-group">
+            <label>Cenário de simulação</label>
+            <select
+              value={scenario}
+              onChange={(e) => setScenario(e.target.value as typeof scenario)}
+            >
+              {Object.entries(scenarioLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {scenarioHints[scenario] && (
+            <div className="scenario-hint">{scenarioHints[scenario]}</div>
+          )}
+
+          <button
+            type="submit"
+            className="btn btn-primary btn-full"
+            disabled={loading || quantity > product.stock}
+          >
+            {loading ? 'Processando...' : 'Finalizar compra'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

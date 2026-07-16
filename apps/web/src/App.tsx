@@ -51,7 +51,6 @@ function App() {
     }
   };
 
-  // Simulação de duplo clique para cenário de idempotência
   const handleCreateOrderWithDoubleClick = async (payload: CreateOrderRequest) => {
     setLoading(true);
     setMessage(null);
@@ -72,7 +71,6 @@ function App() {
     }
   };
 
-  // Simulação de duas pessoas comprando o mesmo produto ao mesmo tempo
   const handleCreateOrderConcurrent = async (payload: CreateOrderRequest) => {
     setLoading(true);
     setMessage(null);
@@ -95,14 +93,21 @@ function App() {
   };
 
   return (
-    <div className="app">
-      <header>
-        <h1>RabbitMQ Ecommerce</h1>
-        <p>Aprenda filas com cenários reais de checkout</p>
-      </header>
+    <>
+      <nav className="navbar">
+        <div className="navbar-inner">
+          <span className="navbar-brand">
+            <span className="icon">🛒</span>
+            TechStore
+          </span>
+          <span className="navbar-badge">
+            {orders.length} pedido{orders.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </nav>
 
-      <main>
-        {message && <div className="message">{message}</div>}
+      <div className="app">
+        {message && <div className="toast">{message}</div>}
 
         {selectedProduct ? (
           <OrderForm
@@ -114,6 +119,10 @@ function App() {
                   ? handleCreateOrderConcurrent(payload)
                   : handleCreateOrder(payload)
             }
+            onBack={() => {
+              setSelectedProduct(null);
+              setMessage(null);
+            }}
             loading={loading}
           />
         ) : (
@@ -121,8 +130,12 @@ function App() {
         )}
 
         <OrderStatus orders={orders} />
-      </main>
-    </div>
+      </div>
+
+      <footer className="footer">
+        <strong>TechStore</strong> — Demonstração de RabbitMQ · Checkout, Inventário, Pagamento e Notificações
+      </footer>
+    </>
   );
 }
 
