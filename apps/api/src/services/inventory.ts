@@ -6,6 +6,17 @@ import { decrementStock, updateOrderStatus } from '../data/store';
 export async function processInventory(message: InventoryMessage): Promise<void> {
   const channel = getChannel();
 
+  if (message.simulateScenario === 'api_crash') {
+    console.log(`[inventory] API crash simulation — sending order ${message.orderId} to retry queue (5s TTL)`);
+    await sendToInventoryRetry({
+      orderId: message.orderId,
+      productId: message.productId,
+      quantity: message.quantity,
+      simulateScenario: undefined,
+    });
+    return;
+  }
+
   const success = decrementStock(message.productId, message.quantity);
 
   if (!success) {

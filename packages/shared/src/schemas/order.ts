@@ -38,7 +38,7 @@ export const CreateOrderRequestSchema = z.object({
   productId: z.string(),
   quantity: z.number().int().positive(),
   idempotencyKey: z.string().min(1),
-  simulateScenario: z.enum(['default', 'declined', 'duplicate', 'concurrent_stock']).optional(),
+  simulateScenario: z.enum(['default', 'declined', 'duplicate', 'concurrent_stock', 'api_crash']).optional(),
 });
 
 export const CreateOrderResponseSchema = z.object({

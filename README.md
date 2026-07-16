@@ -62,7 +62,7 @@ Projeto de aprendizado de **RabbitMQ** simulando um e-commerce real.
 | Exchange | Tipo | Filas vinculadas | Routing Key |
 |----------|------|------------------|-------------|
 | `checkout.exchange` | direct | `checkout.queue` | `checkout.created` |
-| `inventory.exchange` | direct | `inventory.queue` | `inventory.reserve` |
+| `inventory.exchange` | direct | `inventory.queue`, `inventory.retry.queue` (via DLX) | `inventory.reserve` |
 | `payment.exchange` | direct | `payment.queue`, `payment.retry.queue` (via DLX) | `payment.process` |
 | `notification.exchange` | fanout | `notification.queue` | — |
 | `dead-letter.exchange` | direct | `dead-letter.queue` | `dead-letter` |
@@ -135,6 +135,8 @@ O frontend permite escolher um cenário no momento do checkout:
 | **Padrão** | Checkout normal: estoque reservado → pagamento aprovado → pedido concluído. |
 | **Pagamento recusado** | Simula cartão recusado; o pedido vai para `PAYMENT_DECLINED` e a mensagem é descartada para a **DLQ**. |
 | **Duplo clique / idempotência** | Duas requisições idênticas são enviadas com a mesma `idempotencyKey`; o backend responde o mesmo resultado sem processar duas vezes. |
+| **Compra concorrente (estoque)** | Simula duas pessoas diferentes comprando o mesmo produto ao mesmo tempo (chaves de idempotência distintas). Se o estoque for insuficiente, o segundo pedido falha com `OUT_OF_STOCK`. |
+| **API fora do ar (retry)** | Simula a queda da API durante o processamento. A mensagem é encaminhada para a `inventory.retry.queue` com TTL de 5s, e após esse tempo é reprocessada automaticamente — como se a API tivesse "voltado". |
 
 ### Produtos de teste
 
@@ -154,6 +156,8 @@ O frontend permite escolher um cenário no momento do checkout:
 3. [Pagamento recusado](#3-pagamento-recusado)
 4. [Processamento assíncrono](#4-processamento-assíncrono)
 5. [Dead Letter Queue (DLQ)](#5-dead-letter-queue-dlq)
+6. [Compra concorrente](#6-compra-concorrente)
+7. [API fora do ar com retry automático](#7-api-fora-do-ar-com-retry-automático)
 
 ### 1. Tentativa dupla de pagamento (idempotência)
 
@@ -256,6 +260,54 @@ await channel.assertQueue(QUEUES.payment, {
   arguments: { 'x-dead-letter-exchange': EXCHANGES.deadLetter },
 });
 ```
+
+---
+
+### 6. Compra concorrente
+
+**Problema**: duas pessoas diferentes tentam comprar o mesmo produto simultaneamente, e o estoque é insuficiente para ambas.
+
+**Solução**:
+- O cenário `concurrent_stock` faz o frontend enviar **duas requisições** com **chaves de idempotência diferentes** (simulando dois usuários distintos).
+- Ambas as requisições são aceitas pela API e publicadas na fila.
+- O consumer de inventário processa as mensagens sequencialmente (single consumer).
+- A primeira compra decrementa o estoque normalmente.
+- A segunda compra, ao tentar decrementar, encontra estoque insuficiente e marca o pedido como `OUT_OF_STOCK`, enviando a mensagem para a DLQ.
+
+```ts
+// Frontend: duas requisições com chaves diferentes
+const payload2 = { ...payload, idempotencyKey: uuidv4() };
+const [first, second] = await Promise.all([
+  createOrder(payload),
+  createOrder(payload2),
+]);
+```
+
+> Como o consumer processa uma mensagem por vez, a condição de corrida é naturalmente evitada. Com múltiplos consumers seria necessário usar locking otimista ou transações.
+
+---
+
+### 7. API fora do ar com retry automático
+
+**Problema**: a API cai durante o processamento de um pedido. A mensagem não pode ser perdida — deve ficar na fila e ser reprocessada quando a API voltar.
+
+**Solução**:
+- O cenário `api_crash` faz o consumer de inventário **não processar** a mensagem e redirecioná-la para a `inventory.retry.queue`.
+- Essa fila possui **TTL de 5 segundos** e DLX apontando de volta para `inventory.exchange`.
+- Após 5s, o TTL expira e o RabbitMQ reencaminha a mensagem para a fila de inventário.
+- Na segunda tentativa, a flag `api_crash` é removida da mensagem, então o consumer processa normalmente (estoque → pagamento → notificação).
+
+```ts
+if (message.simulateScenario === 'api_crash') {
+  await sendToInventoryRetry({
+    ...message,
+    simulateScenario: undefined, // remove flag para processar normalmente no retry
+  });
+  return;
+}
+```
+
+> O mesmo mecanismo de retry com TTL + DLX já existe para pagamentos (`payment.retry.queue`, 10s). Em produção, o ideal é usar backoff exponencial e um limite máximo de tentativas.
 
 ---
 
