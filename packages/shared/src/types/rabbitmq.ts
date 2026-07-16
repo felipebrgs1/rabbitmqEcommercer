@@ -3,21 +3,21 @@ export type CheckoutMessage = {
   productId: string;
   quantity: number;
   idempotencyKey: string;
-  simulateScenario?: 'default' | 'declined' | 'duplicate';
+  simulateScenario?: 'default' | 'declined' | 'duplicate' | 'concurrent_stock';
 };
 
 export type PaymentMessage = {
   orderId: string;
   idempotencyKey: string;
   amount: number;
-  simulateScenario?: 'default' | 'declined' | 'duplicate';
+  simulateScenario?: 'default' | 'declined' | 'duplicate' | 'concurrent_stock';
 };
 
 export type InventoryMessage = {
   orderId: string;
   productId: string;
   quantity: number;
-  simulateScenario?: 'default' | 'declined' | 'duplicate';
+  simulateScenario?: 'default' | 'declined' | 'duplicate' | 'concurrent_stock';
 };
 
 export type NotificationMessage = {

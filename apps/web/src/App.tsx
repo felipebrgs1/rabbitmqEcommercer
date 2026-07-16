@@ -3,6 +3,7 @@ import { getProducts, getOrders, createOrder } from './api';
 import { ProductList } from './components/ProductList';
 import { OrderForm } from './components/OrderForm';
 import { OrderStatus } from './components/OrderStatus';
+import { v4 as uuidv4 } from './utils/uuid';
 import type { CreateOrderRequest, Product, Order } from '@repo/shared';
 
 function App() {
@@ -71,6 +72,28 @@ function App() {
     }
   };
 
+  // Simulação de duas pessoas comprando o mesmo produto ao mesmo tempo
+  const handleCreateOrderConcurrent = async (payload: CreateOrderRequest) => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const payload2 = { ...payload, idempotencyKey: uuidv4() };
+      const [first, second] = await Promise.all([
+        createOrder(payload),
+        createOrder(payload2),
+      ]);
+      setMessage(
+        `Duas pessoas comprando simultaneamente! Pedido 1 (${first.order?.id}): ${first.message} | Pedido 2 (${second.order?.id}): ${second.message}`
+      );
+      await fetchData();
+      setSelectedProduct(null);
+    } catch (error) {
+      setMessage('Erro ao processar pedidos concorrentes.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="app">
       <header>
@@ -87,7 +110,9 @@ function App() {
             onSubmit={(payload) =>
               payload.simulateScenario === 'duplicate'
                 ? handleCreateOrderWithDoubleClick(payload)
-                : handleCreateOrder(payload)
+                : payload.simulateScenario === 'concurrent_stock'
+                  ? handleCreateOrderConcurrent(payload)
+                  : handleCreateOrder(payload)
             }
             loading={loading}
           />

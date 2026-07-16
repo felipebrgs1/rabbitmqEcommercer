@@ -10,7 +10,7 @@ interface OrderFormProps {
 
 export function OrderForm({ product, onSubmit, loading }: OrderFormProps) {
   const [quantity, setQuantity] = useState(1);
-  const [scenario, setScenario] = useState<'default' | 'declined' | 'duplicate'>('default');
+  const [scenario, setScenario] = useState<'default' | 'declined' | 'duplicate' | 'concurrent_stock'>('default');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +45,7 @@ export function OrderForm({ product, onSubmit, loading }: OrderFormProps) {
           <option value="default">Padrão (sucesso)</option>
           <option value="declined">Pagamento recusado</option>
           <option value="duplicate">Duplo clique / idempotência</option>
+          <option value="concurrent_stock">Compra concorrente (estoque)</option>
         </select>
       </label>
 
@@ -56,6 +57,12 @@ export function OrderForm({ product, onSubmit, loading }: OrderFormProps) {
         <p className="hint">
           O backend manterá a mesma <strong>idempotencyKey</strong> para simular duas requisições
           idênticas. O resultado será o mesmo da primeira.
+        </p>
+      )}
+      {scenario === 'concurrent_stock' && (
+        <p className="hint">
+          Simula <strong>duas pessoas diferentes</strong> comprando o mesmo produto ao mesmo
+          tempo (chaves de idempotência distintas). A segunda compra pode falhar por falta de estoque.
         </p>
       )}
     </form>
