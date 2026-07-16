@@ -36,7 +36,7 @@ export function OrderStatus({ orders }: OrderStatusProps) {
               <details>
                 <summary>Histórico</summary>
                 <ul className="history">
-                  {order.history.map((h, i) => (
+                  {order.history.map((h: Order['history'][number], i: number) => (
                     <li key={i}>
                       {statusLabels[h.status]} — {new Date(h.at).toLocaleTimeString()}
                     </li>

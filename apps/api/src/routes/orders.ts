@@ -25,7 +25,7 @@ router.post('/', async (req, res) => {
     return res.status(result.success ? 202 : 400).json(result);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, message: 'Dados inválidos.', errors: error.errors });
+      return res.status(400).json({ success: false, message: 'Dados inválidos.', errors: error.issues });
     }
     console.error('Checkout error:', error);
     return res.status(500).json({ success: false, message: 'Erro interno no checkout.' });
